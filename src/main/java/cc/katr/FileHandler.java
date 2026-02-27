@@ -139,17 +139,20 @@ public class FileHandler {
             return;
         }
 
-        try {
-            InputStream in = storage.read(record.id());
-            
+        try (InputStream in = storage.read(record.id())) {
             // 写入硬设定的缓存配置
             ctx.header("Cache-Control", "public, max-age=31536000"); // 1 year 强缓存
             ctx.header("Content-Disposition", "inline; filename=\"" + record.originalName() + "\"");
-            ctx.header("Content-Length", String.valueOf(record.size()));
+            
+            // 绕过 Javalin 的分块传输自动行为（ctx.result会截断Content-Length并启用chunked）
+            // 直接操作底层 ServletResponse 并写入精确大小
+            ctx.res().setContentLengthLong(record.size());
             ctx.contentType(record.mimeType());
             
-            // result() 接收 InputStream 时会自动异步分块响应，最终帮助我们关闭 InputStream
-            ctx.result(in);
+            // 使用阻塞的高效 transferTo，基于 Java 21+ 虚拟线程无需担心线程耗尽问题
+            in.transferTo(ctx.res().getOutputStream());
+            // 刷新缓冲区
+            ctx.res().getOutputStream().flush();
         } catch (Exception e) {
             ctx.status(500).json(Map.of("error", "Failed to retrieve file stream"));
         }
