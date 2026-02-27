@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>fsh - 极简文件流转</title>
+    <!-- 使用 Inter 字体增强现代感 -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --glass-bg: rgba(30, 41, 59, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --accent-color: #3b82f6;
+            --accent-glow: rgba(59, 130, 246, 0.5);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --success: #10b981;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.15), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.15), transparent 25%);
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+            padding: 2rem;
+            margin-top: 4rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 600;
+            letter-spacing: -0.05em;
+            background: linear-gradient(135deg, #60a5fa, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        /* 毛玻璃面板 */
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            margin-bottom: 2rem;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        /* 拖拽上传区 */
+        .upload-area {
+            border: 2px dashed rgba(148, 163, 184, 0.3);
+            border-radius: 12px;
+            padding: 3rem 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-area:hover, .upload-area.dragover {
+            border-color: var(--accent-color);
+            background: rgba(59, 130, 246, 0.05);
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            display: inline-block;
+            transition: transform 0.3s ease;
+        }
+
+        .upload-area:hover .upload-icon {
+            transform: translateY(-5px);
+        }
+
+        .upload-text {
+            font-size: 1.1rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+
+        .upload-hint {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        /* 进度条 */
+        .progress-container {
+            margin-top: 1.5rem;
+            display: none;
+        }
+
+        .progress-bar {
+            height: 6px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+            transition: width 0.2s ease;
+        }
+
+        /* 文件列表区 */
+        .list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding: 0 0.5rem;
+        }
+
+        .list-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .refresh-btn {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--glass-border);
+            color: var(--text-main);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s ease;
+        }
+
+        .refresh-btn:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .file-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+        }
+
+        .file-item {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 10px;
+            padding: 1rem 1.25rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s ease;
+        }
+
+        .file-item:hover {
+            background: rgba(255,255,255,0.06);
+        }
+
+        .file-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+            overflow: hidden;
+        }
+
+        .file-name {
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 300px;
+        }
+
+        .file-meta {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            display: flex;
+            gap: 1rem;
+        }
+
+        .file-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .action-btn {
+            background: rgba(59, 130, 246, 0.1);
+            color: #60a5fa;
+            border: none;
+            padding: 0.5rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+
+        .action-btn:hover {
+            background: rgba(59, 130, 246, 0.2);
+        }
+
+        .action-btn.copy {
+            background: rgba(16, 185, 129, 0.1);
+            color: #34d399;
+        }
+
+        .action-btn.copy:hover {
+            background: rgba(16, 185, 129, 0.2);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        /* Toast 提示 */
+        #toast {
+            position: fixed;
+            bottom: 2rem;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(10px);
+            padding: 0.8rem 1.5rem;
+            border-radius: 50px;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            z-index: 1000;
+        }
+
+        #toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        @media (max-width: 600px) {
+            .file-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+            .file-name {
+                max-width: 100%;
+            }
+            .file-actions {
+                align-self: flex-end;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>fsh.</h1>
+            <p class="subtitle">极简、无损的文件流转枢纽</p>
+        </header>
+
+        <!-- 上传面板 -->
+        <div class="glass-panel">
+            <div class="upload-area" id="dropZone">
+                <span class="upload-icon">✨</span>
+                <div class="upload-text">点击选择文件，或将文件拖拽至此处</div>
+                <div class="upload-hint">支持任何格式，直接流式落盘 (Max: 2GB)</div>
+                <input type="file" id="fileInput">
+            </div>
+            
+            <div class="progress-container" id="progressContainer">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.85rem;">
+                    <span id="progressText">Uploading...</span>
+                    <span id="progressPercent">0%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 列表面板 -->
+        <div class="glass-panel">
+            <div class="list-header">
+                <div class="list-title">最近流转区</div>
+                <button class="refresh-btn" onclick="loadFiles()">↻ 刷新状态</button>
+            </div>
+            <div class="file-list" id="fileList">
+                <div class="empty-state">加载中...</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast">复制成功</div>
+
+    <script>
+        // DOM 元素
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('fileList');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressFill = document.getElementById('progressFill');
+        const progressPercent = document.getElementById('progressPercent');
+        const progressText = document.getElementById('progressText');
+        const toast = document.getElementById('toast');
+
+        // 格式化工具
+        const formatSize = (bytes) => {
+            if (bytes === 0) return '0 B';
+            const k = 1024, sizes = ['B', 'KB', 'MB', 'GB'], i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        };
+
+        const formatDate = (ts) => {
+            return new Date(ts).toLocaleString('zh-CN', { 
+                month: '2-digit', day: '2-digit', hour: '2-digit', minute:'2-digit' 
+            });
+        };
+
+        const showToast = (msg) => {
+            toast.textContent = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        };
+
+        // 核心交互：加载文件列表
+        async function loadFiles() {
+            try {
+                const res = await fetch('/api/files');
+                if (!res.ok) throw new Error('API Error');
+                const files = await res.json();
+                
+                if (files.length === 0) {
+                    fileList.innerHTML = '<div class="empty-state">暂无流转记录</div>';
+                    return;
+                }
+
+                fileList.innerHTML = files.map(f => {
+                    const dlUrl = `${window.location.origin}/f/${f.shortCode}`;
+                    return `
+                        <div class="file-item">
+                            <div class="file-info">
+                                <div class="file-name" title="${f.originalName}">${f.originalName}</div>
+                                <div class="file-meta">
+                                    <span>${formatSize(f.size)}</span>
+                                    <span>${formatDate(f.createdAt)}</span>
+                                    <span>ID: ${f.shortCode}</span>
+                                </div>
+                            </div>
+                            <div class="file-actions">
+                                <button class="action-btn copy" onclick="copyText('${dlUrl}')">复制直链</button>
+                                <a href="${dlUrl}" class="action-btn" target="_blank" download="${f.originalName}">原生下载</a>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (err) {
+                fileList.innerHTML = '<div class="empty-state" style="color: #ef4444;">加载失败，请检查网络或后置服务</div>';
+            }
+        }
+
+        // 核心交互：复制短链
+        window.copyText = (text) => {
+            navigator.clipboard.writeText(text).then(() => showToast('✨ 直链已复制到剪贴板'));
+        };
+
+        // 核心交互：上传文件 (原生 Fetch + XHR 支持进度)
+        function uploadFile(file) {
+            if (!file) return;
+            
+            progressContainer.style.display = 'block';
+            progressText.textContent = `流传输中: ${file.name}`;
+            progressFill.style.width = '0%';
+            progressPercent.textContent = '0%';
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // 使用 XMLHttpRequest 获取真实的进度回调
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/files', true);
+
+            xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable) {
+                    const percentComplete = Math.round((e.loaded / e.total) * 100);
+                    progressFill.style.width = percentComplete + '%';
+                    progressPercent.textContent = percentComplete + '%';
+                }
+            };
+
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    progressText.textContent = '上传完成!';
+                    showToast('🎉 文件上传成功');
+                    setTimeout(() => {
+                        progressContainer.style.display = 'none';
+                        loadFiles(); // 刷新列表
+                    }, 1000);
+                } else {
+                    let err = '上传失败';
+                    try { err = JSON.parse(xhr.responseText).error || err; } catch(e){}
+                    progressText.textContent = err;
+                    progressFill.style.background = '#ef4444';
+                }
+            };
+
+            xhr.onerror = () => {
+                progressText.textContent = '网络错误';
+                progressFill.style.background = '#ef4444';
+            };
+
+            xhr.send(formData);
+        }
+
+        // 绑定拖拽事件
+        dropZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => uploadFile(e.target.files[0]));
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+            document.body.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false);
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const file = dt.files[0];
+            uploadFile(file);
+        });
+
+        // 初始加载
+        document.addEventListener('DOMContentLoaded', loadFiles);
+    </script>
+</body>
+</html>
