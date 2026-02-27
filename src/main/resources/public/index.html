@@ -246,6 +246,15 @@
             background: rgba(16, 185, 129, 0.2);
         }
 
+        .action-btn.delete {
+            background: rgba(239, 68, 68, 0.1);
+            color: #f87171;
+        }
+
+        .action-btn.delete:hover {
+            background: rgba(239, 68, 68, 0.2);
+        }
+
         .empty-state {
             text-align: center;
             padding: 2rem;
@@ -392,6 +401,7 @@
                             <div class="file-actions">
                                 <button class="action-btn copy" onclick="copyText('${dlUrl}')">复制直链</button>
                                 <a href="${dlUrl}" class="action-btn" target="_blank" download="${f.originalName}">原生下载</a>
+                                <button class="action-btn delete" onclick="deleteFile('${f.shortCode}', '${f.originalName}')">删除</button>
                             </div>
                         </div>
                     `;
@@ -404,6 +414,24 @@
         // 核心交互：复制短链
         window.copyText = (text) => {
             navigator.clipboard.writeText(text).then(() => showToast('✨ 直链已复制到剪贴板'));
+        };
+
+        // 核心交互：删除文件
+        window.deleteFile = async (shortCode, fileName) => {
+            if (!confirm(`确定要永久删除文件 "${fileName}" 吗？此操作不可逆。`)) {
+                return;
+            }
+            try {
+                const apiBasePath = window.location.pathname.replace(/\/$/, '');
+                const res = await fetch(`${apiBasePath}/api/files/${shortCode}`, {
+                    method: 'DELETE'
+                });
+                if (!res.ok) throw new Error('Delete Failed');
+                showToast('🗑️ 文件已删除');
+                loadFiles(); // 刷新列表
+            } catch (err) {
+                showToast('❌ 删除失败，请重试');
+            }
         };
 
         // 核心交互：上传文件 (原生 Fetch + XHR 支持进度)

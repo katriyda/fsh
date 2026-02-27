@@ -49,6 +49,7 @@ public class Main {
         app.get(finalPrefix + "/api/files", fileHandler::listFiles); // 获取列表接口
         app.post(finalPrefix + "/api/files", fileHandler::uploadFile);
         app.get(finalPrefix + "/api/files/{shortCode}", fileHandler::getMetadata);
+        app.delete(finalPrefix + "/api/files/{shortCode}", fileHandler::deleteFile);
         
         // 下载路由始终在根路径，不受前缀影响
         app.get("/f/{shortCode}", fileHandler::downloadFile);

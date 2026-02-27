@@ -166,4 +166,32 @@ public class FileHandler {
         
         ctx.status(200).json(files);
     }
+
+    /**
+     * 删除文件，包含物理文件与元数据文件
+     * endpoint: DELETE /api/files/{shortCode}
+     */
+    public void deleteFile(Context ctx) {
+        String shortCode = ctx.pathParam("shortCode");
+        FileRecord record = metaDb.remove(shortCode);
+        
+        if (record == null) {
+            ctx.status(404).json(Map.of("error", "File not found"));
+            return;
+        }
+
+        // 尝试删除实际文件
+        boolean dataDeleted = storage.delete(record.id());
+        // 尝试删除对应的元数据 JSON 文件
+        boolean metaDeleted = storage.delete(shortCode + ".json");
+
+        // 如果实际上在磁盘中没找到，但也从内存中移除了，依旧返回成功。
+        // 因为对于调用者来说，它的目的是“不存在这个文件”，不在乎它事前是否已经不存在。
+        ctx.status(200).json(Map.of(
+            "message", "Deleted successfully",
+            "shortCode", shortCode,
+            "dataDeleted", dataDeleted,
+            "metaDeleted", metaDeleted
+        ));
+    }
 }

@@ -61,6 +61,21 @@ public class LocalFileStorage {
     }
 
     /**
+     * 安全删除指定文件
+     *
+     * @return 如果文件被删除则返回 true，如果不存在则返回 false
+     */
+    public boolean delete(String fileName) {
+        try {
+            Path targetPath = resolveAndCheckPath(fileName);
+            return Files.deleteIfExists(targetPath);
+        } catch (Exception e) {
+            System.err.println("Failed to delete file '" + fileName + "': " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
      * 进行基础的路径遍历漏洞防护
      */
     private Path resolveAndCheckPath(String fileName) {
