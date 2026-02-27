@@ -5,7 +5,7 @@ import io.javalin.json.JavalinJackson;
 import io.javalin.plugin.bundled.CorsPluginConfig;
 
 public class Main {
-    public static void main(String[] args) {
+    static void main() {
         // 在启动时读取或生成默认外部配置文件
         AppConfig config = AppConfig.loadOrCreate("config.json");
         System.out.println("⚙️ Loaded configuration: Port=" + config.port() + " | StoragePath=" + config.storagePath() + " | MaxUploadSize=" + config.maxRequestSize() + " bytes");
