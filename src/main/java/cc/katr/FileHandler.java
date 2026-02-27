@@ -145,6 +145,7 @@ public class FileHandler {
             // 写入硬设定的缓存配置
             ctx.header("Cache-Control", "public, max-age=31536000"); // 1 year 强缓存
             ctx.header("Content-Disposition", "inline; filename=\"" + record.originalName() + "\"");
+            ctx.header("Content-Length", String.valueOf(record.size()));
             ctx.contentType(record.mimeType());
             
             // result() 接收 InputStream 时会自动异步分块响应，最终帮助我们关闭 InputStream
