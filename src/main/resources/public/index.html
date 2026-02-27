@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -32,7 +33,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            background-image: 
+            background-image:
                 radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.15), transparent 25%),
                 radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.15), transparent 25%);
         }
@@ -89,7 +90,8 @@
             overflow: hidden;
         }
 
-        .upload-area:hover, .upload-area.dragover {
+        .upload-area:hover,
+        .upload-area.dragover {
             border-color: var(--accent-color);
             background: rgba(59, 130, 246, 0.05);
             box-shadow: 0 0 20px var(--accent-glow);
@@ -129,7 +131,7 @@
 
         .progress-bar {
             height: 6px;
-            background: rgba(255,255,255,0.1);
+            background: rgba(255, 255, 255, 0.1);
             border-radius: 3px;
             overflow: hidden;
         }
@@ -156,7 +158,7 @@
         }
 
         .refresh-btn {
-            background: rgba(255,255,255,0.05);
+            background: rgba(255, 255, 255, 0.05);
             border: 1px solid var(--glass-border);
             color: var(--text-main);
             padding: 0.5rem 1rem;
@@ -167,7 +169,7 @@
         }
 
         .refresh-btn:hover {
-            background: rgba(255,255,255,0.1);
+            background: rgba(255, 255, 255, 0.1);
         }
 
         .file-list {
@@ -177,8 +179,8 @@
         }
 
         .file-item {
-            background: rgba(255,255,255,0.03);
-            border: 1px solid rgba(255,255,255,0.05);
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
             border-radius: 10px;
             padding: 1rem 1.25rem;
             display: flex;
@@ -188,7 +190,7 @@
         }
 
         .file-item:hover {
-            background: rgba(255,255,255,0.06);
+            background: rgba(255, 255, 255, 0.06);
         }
 
         .file-info {
@@ -277,15 +279,18 @@
                 align-items: flex-start;
                 gap: 1rem;
             }
+
             .file-name {
                 max-width: 100%;
             }
+
             .file-actions {
                 align-self: flex-end;
             }
         }
     </style>
 </head>
+
 <body>
 
     <div class="container">
@@ -302,7 +307,7 @@
                 <div class="upload-hint">支持任何格式，直接流式落盘 (Max: 2GB)</div>
                 <input type="file" id="fileInput">
             </div>
-            
+
             <div class="progress-container" id="progressContainer">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.85rem;">
                     <span id="progressText">Uploading...</span>
@@ -347,8 +352,8 @@
         };
 
         const formatDate = (ts) => {
-            return new Date(ts).toLocaleString('zh-CN', { 
-                month: '2-digit', day: '2-digit', hour: '2-digit', minute:'2-digit' 
+            return new Date(ts).toLocaleString('zh-CN', {
+                month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
             });
         };
 
@@ -361,10 +366,12 @@
         // 核心交互：加载文件列表
         async function loadFiles() {
             try {
-                const res = await fetch('/api/files');
+                // Dynamically determine the base path from the current URL
+                const apiBasePath = window.location.pathname.replace(/\/$/, '');
+                const res = await fetch(`${apiBasePath}/api/files`);
                 if (!res.ok) throw new Error('API Error');
                 const files = await res.json();
-                
+
                 if (files.length === 0) {
                     fileList.innerHTML = '<div class="empty-state">暂无流转记录</div>';
                     return;
@@ -402,7 +409,7 @@
         // 核心交互：上传文件 (原生 Fetch + XHR 支持进度)
         function uploadFile(file) {
             if (!file) return;
-            
+
             progressContainer.style.display = 'block';
             progressText.textContent = `流传输中: ${file.name}`;
             progressFill.style.width = '0%';
@@ -411,9 +418,12 @@
             const formData = new FormData();
             formData.append('file', file);
 
+            // Dynamically determine the base path from the current URL
+            const apiBasePath = window.location.pathname.replace(/\/$/, '');
+
             // 使用 XMLHttpRequest 获取真实的进度回调
             const xhr = new XMLHttpRequest();
-            xhr.open('POST', '/api/files', true);
+            xhr.open('POST', `${apiBasePath}/api/files`, true);
 
             xhr.upload.onprogress = (e) => {
                 if (e.lengthComputable) {
@@ -423,7 +433,7 @@
                 }
             };
 
-            xhr.onload = function() {
+            xhr.onload = function () {
                 if (xhr.status === 200) {
                     progressText.textContent = '上传完成!';
                     showToast('🎉 文件上传成功');
@@ -433,7 +443,7 @@
                     }, 1000);
                 } else {
                     let err = '上传失败';
-                    try { err = JSON.parse(xhr.responseText).error || err; } catch(e){}
+                    try { err = JSON.parse(xhr.responseText).error || err; } catch (e) { }
                     progressText.textContent = err;
                     progressFill.style.background = '#ef4444';
                 }
@@ -479,4 +489,5 @@
         document.addEventListener('DOMContentLoaded', loadFiles);
     </script>
 </body>
+
 </html>
