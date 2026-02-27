@@ -5,6 +5,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.List;
+import java.util.stream.Stream;
 
 /**
  * 结构扁平化、无框架依赖的本地文件存储封装
@@ -39,6 +41,18 @@ public class LocalFileStorage {
         return resolveAndCheckPath(fileName);
     }
     
+    /**
+     * 历遍获取所有 metadata (.json) 文件的路径
+     */
+    public List<Path> listMetadataPaths() throws Exception {
+        try (Stream<Path> stream = Files.list(baseDir)) {
+            return stream
+                    .filter(path -> !Files.isDirectory(path))
+                    .filter(path -> path.getFileName().toString().endsWith(".json"))
+                    .toList();
+        }
+    }
+
     /**
      * 读取指定文件为 InputStream
      */

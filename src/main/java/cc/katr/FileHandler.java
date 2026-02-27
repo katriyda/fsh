@@ -1,9 +1,12 @@
 package cc.katr;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.javalin.http.Context;
 import io.javalin.http.UploadedFile;
 
 import java.io.InputStream;
+import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -13,11 +16,31 @@ import java.util.concurrent.ConcurrentHashMap;
 public class FileHandler {
 
     private final LocalFileStorage storage;
-    // 简略的基于内存的元数据数据库，用来应对短链接和对应实体的映射。
+    // 基于内存的元数据数据库，用来应对短链接和对应实体的映射。启动时会从磁盘恢复。
     private final Map<String, FileRecord> metaDb = new ConcurrentHashMap<>();
+    private final ObjectMapper mapper = new ObjectMapper();
 
     public FileHandler(LocalFileStorage storage) {
         this.storage = storage;
+        // 启动时从磁盘上恢复所有元数据记录
+        try {
+            List<Path> metadataPaths = storage.listMetadataPaths();
+            for (Path path : metadataPaths) {
+                try {
+                    FileRecord record = mapper.readValue(path.toFile(), FileRecord.class);
+                    if (record != null && record.shortCode() != null) {
+                        metaDb.put(record.shortCode(), record);
+                    }
+                } catch (Exception e) {
+                    System.err.println("⚠️ Warning: Failed to load metadata from " + path.getFileName() + ": " + e.getMessage());
+                }
+            }
+            if (!metaDb.isEmpty()) {
+                System.out.println("📦 Recovered " + metaDb.size() + " file metadata records from disk.");
+            }
+        } catch (Exception e) {
+            System.err.println("💥 Error: Failed to list metadata paths on startup: " + e.getMessage());
+        }
     }
 
     /**
@@ -68,7 +91,16 @@ public class FileHandler {
             System.currentTimeMillis()
         );
 
+        // 内存中保存
         metaDb.put(shortCode, record);
+
+        // 持久化到磁盘（使用 shortCode.json 命名）
+        try {
+            mapper.writeValue(storage.getPath(shortCode + ".json").toFile(), record);
+        } catch (Exception e) {
+            System.err.println("⚠️ Warning: Failed to persist metadata for " + shortCode + ": " + e.getMessage());
+            // 如果持久化失败，不中断上传，但记录一条警告
+        }
 
         String downloadUrl = ctx.scheme() + "://" + ctx.host() + "/f/" + shortCode;
         
